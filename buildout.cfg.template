@@ -1,0 +1,90 @@
+########################################################################
+# USAGE
+########################################################################
+#
+# See readme.md
+#
+########################################################################
+
+[buildout]
+parts = directories_setup odoo supervisor
+find-links = ./sources/eggs
+versions = versions
+extensions = gp.vcsdevelop
+vcs-extend-develop =
+    git+https://github.com/anybox/anybox.recipe.odoo#egg=anybox.recipe.odoo
+vcs-update = True
+
+[directories_setup]
+recipe = z3c.recipe.mkdir
+paths = ${buildout:parts-directory}/community
+        ${buildout:parts-directory}/local
+        ${buildout:parts-directory}/idealis
+
+[odoo]
+
+recipe = anybox.recipe.odoo:server
+version = git http://github.com/odoo/odoo.git odoo 10.0 depth=1
+keep-addons-order = True
+
+addons = local parts/odoo/addons
+         local project_addons
+         git http://idealisconsultingbe:consulting8@github.com/odoo/enterprise.git parts/odoo/addons-enterprise 10.0
+         git https://github.com/OCA/server-tools.git parts/community/addons-oca-server-tools 10.0
+         ; git https://github.com/OCA/connector.git parts/community/addons-connector 10.0
+         ; git https://github.com/OCA/web.git parts/community/addons-oca-web 10.0
+         
+
+
+eggs = nose
+       simplejson
+       reportlab
+#       beautifulsoup
+
+openerp_scripts = nosetests command-line-options=-d
+clean = false
+with_devtools = true
+apply-requirements-file = True
+
+
+[versions]
+setuptools=33.1.1
+reportlab=3.1.44
+
+
+[supervisor]
+recipe = collective.recipe.supervisor
+#
+# We only want to generate the programs section so that we can symlink generated file
+# to /etc/supervisor/conf.d/
+sections = services
+
+#
+# Following options ignored due to sections settings above
+#http-socket = unix
+#file = ${buildout:directory}/var/supervisord.sock
+# port = 127.0.0.1:9001
+#supervisord-conf = ${buildout:directory}/etc/supervisord.conf
+#logfile = ${buildout:directory}/var/log/supervisord.log
+#pidfile = ${buildout:directory}/var/supervisord.pid
+#loglevel = info
+
+#
+# vars used to configure programs
+logfile_odoo = ${buildout:directory}/var/log/odoo-stdout.log
+
+# User owner of preocesses (supervisor default is to run as root which is impossible for odoo)
+process_owner_user = odoo
+
+# odoo connector specifics
+logfile_odoo_connector = ${buildout:directory}/var/log/odoo-connector-stdout.log
+# number of connector worker processes
+connector_workers = 2
+
+# number of workers for multi process programs
+odoo_workers = 2
+
+programs =
+    10 odoo "${buildout:directory}/bin/start_odoo" [ --logfile "${:logfile_odoo}" --workers=${:odoo_workers}] ${buildout:directory} true ${:process_owner_user}
+#    10 odoo_mono (autostart=false) "${buildout:directory}/bin/start_odoo" [ --logfile "${:logfile_odoo}" --workers=0 ] ${buildout:directory} true ${:process_owner_user}
+#    10 odoo_worker "${buildout:directory}/bin/python_odoo" [ "${buildout:directory}/parts/community/odoo-connector/connector/odoo-connector-worker" --config="${buildout:directory}/etc/odoo.cfg"  --logfile "${:logfile_odoo_connector}" --workers=${:connector_workers}] ${buildout:directory} true ${:process_owner_user}
